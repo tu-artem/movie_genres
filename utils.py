@@ -41,7 +41,7 @@ def train(model, dl_train, dl_valid, criterion, optimizer, n_epochs, print_every
             loss = criterion(predicted, sample["y"])
             epoch_loss += loss.item()
 
-            epoch_acc += multilabel_accuracy(sample["y"], predicted)
+            epoch_acc += multilabel_accuracy(sample["y"], torch.sigmoid(predicted))
 
             loss.backward()
             optimizer.step()
@@ -51,7 +51,7 @@ def train(model, dl_train, dl_valid, criterion, optimizer, n_epochs, print_every
             predicted = model(sample["X"], sample["X_len"])
             loss = criterion(predicted, sample["y"])
             valid_epoch_loss += loss.item()
-            valid_epoch_acc += multilabel_accuracy(sample["y"], predicted)
+            valid_epoch_acc += multilabel_accuracy(sample["y"], torch.sigmoid(predicted))
         train_losses.append(epoch_loss / len(dl_train))
         valid_losses.append(valid_epoch_loss / len(dl_valid))
         if (epoch + 1) % print_every == 0:
