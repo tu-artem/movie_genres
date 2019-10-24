@@ -1,5 +1,7 @@
 import csv
 import io
+import os
+import pickle
 
 from collections import Counter
 from itertools import chain
@@ -84,6 +86,8 @@ ds_train, ds_valid = random_split(ds, lengths=[train_len, len(movies) - train_le
 
 
 if __name__ == "__main__":
+    SAVE_MODEL = True
+
     BATCH_SIZE = 32
     HIDDEN_DIM = 128
     BIDIRECTIONAL = True
@@ -95,16 +99,18 @@ if __name__ == "__main__":
     dl_train = DataLoader(ds_train, batch_size=BATCH_SIZE, shuffle=True)
     dl_valid = DataLoader(ds_valid, batch_size=BATCH_SIZE, shuffle=True)
 
-    model = SimpleLSTM(
-        n_out=len(genres_vocab),
-        vocab_size=len(overviews_vocab),
-        vectors=overviews_vocab.vectors,
-        seq_len=300,
-        hidden_dim=HIDDEN_DIM,
-        bidirectional=BIDIRECTIONAL,
-        num_layers=NUM_LAYERS,
-        dropout=DROPOUT,
-    ).to(device)
+    model_args = {
+        "n_out": len(genres_vocab),
+        "vocab_size": len(overviews_vocab),
+        "vectors": overviews_vocab.vectors,
+        "seq_len": 300,
+        "hidden_dim": HIDDEN_DIM,
+        "bidirectional": BIDIRECTIONAL,
+        "num_layers": NUM_LAYERS,
+        "dropout": DROPOUT,
+    }
+
+    model = SimpleLSTM(**model_args).to(device)
 
     criterion = nn.BCEWithLogitsLoss()
     optimizer = torch.optim.Adam(model.parameters())
@@ -118,3 +124,28 @@ if __name__ == "__main__":
         n_epochs=N_EPOCHS,
         print_every=PRINT_EVERY,
     )
+
+    if SAVE_MODEL:
+        if not os.path.exists("outputs"):
+            os.mkdir("outputs")
+
+        if not os.path.exists("outputs/models"):
+            os.mkdir("outputs/models")
+
+        if not os.path.exists("outputs/vocab"):
+            os.mkdir("outputs/vocab")
+
+
+        serialization_dictionary = {
+            "model_weights": model.state_dict(),
+            "model_args": model_args
+        }
+
+        torch.save(serialization_dictionary, "outputs/models/simple_lstm_{0}.pth".format(N_EPOCHS))
+
+
+        with open("outputs/vocab/overviews_vocab.pcl", "wb") as f:
+            pickle.dump(overviews_vocab, f)
+
+        with open("outputs/vocab/genres_vocab.pcl", "wb") as f:
+            pickle.dump(genres_vocab, f)
