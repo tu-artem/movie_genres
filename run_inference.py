@@ -30,7 +30,7 @@ def make_predictions(
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-model_dictionary = torch.load("outputs/models/simple_lstm_16.pth", map_location=device)
+model_dictionary = torch.load("outputs/models/simple_lstm_10.pth", map_location=device)
 
 model = SimpleLSTM(**model_dictionary["model_args"])
 
@@ -48,14 +48,31 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--text", default="This is some funny story")
     parser.add_argument("--threshold", type=float, default=0.5)
+    parser.add_argument("--interactive", action='store_true')
+
 
     args = parser.parse_args()
-    text = args.text
     threshold = args.threshold
+    interactive = args.interactive
+    if interactive:
+        while True:
+            text = input("Enter text to score: \n")
+            if not text:
+                continue
+            if text == "exit":
+                break
+            predictions = make_predictions(model, vocab=overviews_vocab, text=text)
+            genre_indices = (torch.sigmoid(predictions.squeeze()) > threshold).nonzero().squeeze(0).tolist()
 
-    predictions = make_predictions(model, vocab=overviews_vocab, text=text)
-    genre_indices = (torch.sigmoid(predictions.squeeze()) > threshold).nonzero().squeeze().tolist()
+            predicted_genres = [genres_vocab[ix] for ix in genre_indices]
+            print(f'Predicted: {", ".join(predicted_genres)}')
+            print("Type exit to finish interactive session\n")
+    else:
+        text = args.text
 
-    predicted_genres = [genres_vocab[ix] for ix in genre_indices]
-    print(text)
-    print(f'Predicted: {", ".join(predicted_genres)}')
+        predictions = make_predictions(model, vocab=overviews_vocab, text=text)
+        genre_indices = (torch.sigmoid(predictions.squeeze()) > threshold).nonzero().squeeze(0).tolist()
+
+        predicted_genres = [genres_vocab[ix] for ix in genre_indices]
+        print(text)
+        print(f'Predicted: {", ".join(predicted_genres)}')
