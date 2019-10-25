@@ -11,6 +11,8 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, random_split
 
+import mlflow
+
 from dataloader import Movie, MovieDataset, Vocab, load_fasttext, tokenize
 from models import SimpleLSTM
 from utils import train
@@ -93,7 +95,7 @@ if __name__ == "__main__":
     BIDIRECTIONAL = True
     NUM_LAYERS = 1
     DROPOUT = 0.1
-    N_EPOCHS = 1
+    N_EPOCHS = 10
     PRINT_EVERY = 1
 
     dl_train = DataLoader(ds_train, batch_size=BATCH_SIZE, shuffle=True)
@@ -123,6 +125,7 @@ if __name__ == "__main__":
         optimizer,
         n_epochs=N_EPOCHS,
         print_every=PRINT_EVERY,
+        logger=mlflow.log_metrics
     )
 
     if SAVE_MODEL:
