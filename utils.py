@@ -24,7 +24,7 @@ def multilabel_accuracy(
     return acc.mean().item()
 
 
-def train(model, dl_train, dl_valid, criterion, optimizer, n_epochs, print_every):
+def train(model, dl_train, dl_valid, criterion, optimizer, n_epochs, print_every, logger=None):
     train_losses = []
     valid_losses = []
     for epoch in range(n_epochs):
@@ -62,3 +62,13 @@ def train(model, dl_train, dl_valid, criterion, optimizer, n_epochs, print_every
                 f"Train Acc {(epoch_acc / len(dl_train)):.4f}, "
                 f"Valid Acc {(valid_epoch_acc / len(dl_valid)):.4f}"
             )
+
+        metrics = {
+            "train_loss": epoch_loss / len(dl_train),
+            "valid_loss": valid_epoch_loss / len(dl_valid),
+            "train_acc": epoch_acc / len(dl_train),
+            "valid_acc": valid_epoch_acc / len(dl_valid)
+        }
+
+        if logger:
+            logger(metrics)
