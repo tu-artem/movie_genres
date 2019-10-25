@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import json
 from collections import Counter
 from string import punctuation
@@ -161,24 +162,32 @@ class Vocab:
                 self.vectors[ix] = torch.tensor(vec)
 
 
-def load_fasttext(fname, keep_vectors: Set[str]) -> Dict[str, List[float]]:
+def load_fasttext(fname: str, keep_vectors: Set[str], directory: str = ".") -> Dict[str, List[float]]:
     """Loads vectors from a zipped file or downloads fasttext first if file does not exist
 
     Args:
-        fname ([type]): zipped file with vectors
+        fname (str): name of fasttext model
         keep_vectors (Set[str]): a set of tokens to keep vectors for
+        directory (str, optional): a directory to store vectors.
 
     Returns:
         Dict[str, List[float]]: [description]
     """
-    url = "https://dl.fbaipublicfiles.com/fasttext/vectors-english/wiki-news-300d-1M.vec.zip"
+    url = f"https://dl.fbaipublicfiles.com/fasttext/vectors-english/{fname}.zip"
 
-    if not os.path.exists(fname):
+    base_path = Path(directory)
+    base_path.mkdir(exist_ok=True)
+
+    file_path = base_path / (fname + ".zip")
+
+    if not file_path.exists():
         print("Downloading vectors...")
-        request.urlretrieve(url, fname)
-    zipped = ZipFile(fname)
+        request.urlretrieve(url, file_path)
+    else:
+        print(f"Found vectors in {directory} directory. Reading...")
+    zipped = ZipFile(file_path)
 
-    with zipped.open("wiki-news-300d-1M.vec", "r") as fin:
+    with zipped.open(fname, "r") as fin:
         n, d = map(int, fin.readline().decode("utf-8").split())
         data = {}
         for line in tqdm(fin, total=n):

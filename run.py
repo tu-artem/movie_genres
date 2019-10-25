@@ -17,7 +17,7 @@ from utils import train
 
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
-print(f"Training on : {device}")
+print(f"Training on: {device}")
 SEED = 22
 
 torch.manual_seed(SEED)
@@ -73,7 +73,7 @@ movies = [
 
 
 vectors = load_fasttext(
-    "wiki-news-300d-1M.vec.zip", set(overviews_vocab.word2ix.keys())
+    "wiki-news-300d-1M.vec", set(overviews_vocab.word2ix.keys()), directory="vectors"
 )
 
 overviews_vocab.set_vectors(vectors, dim=300)
