@@ -1,5 +1,8 @@
+from typing import List
+
 import torch
-import torch.nn as nn
+from torch import nn
+import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 
@@ -67,3 +70,40 @@ class SimpleLSTM(nn.Module):
         linear = self.fc(self.dropout(last_states))
         linear2 = self.fc2(self.dropout(linear))
         return linear2
+
+
+class SimpleCNN(nn.Module):
+    def __init__(
+        self,
+        n_out: int,
+        # vocab_size: int,
+        vectors: torch.Tensor,
+        # seq_len: int = 100,
+        embedding_dim: int = 300,
+        hidden_dim: int = 128,
+        dropout: float = 0.2,
+        num_filters: int = 12,
+        filter_sizes: List[int] = [1, 3, 5],
+    ) -> None:
+        super().__init__()
+
+        self.embedding_dim = embedding_dim
+        self.filter_sizes = filter_sizes
+        self.embeddings = nn.Embedding.from_pretrained(vectors)
+        self.num_filters = num_filters
+
+        self.convs = nn.ModuleList(
+            [nn.Conv2d(1, num_filters, (K, self.embedding_dim)) for K in self.filter_sizes]
+        )
+
+        self.dropout = nn.Dropout(dropout)
+
+        self.fc = nn.Linear(len(self.filter_sizes) * self.num_filters, n_out)
+
+    def forward(self, data):
+        embeddings = self.embeddings(data).unsqueeze(1)
+        convs = [F.relu(conv(embeddings)).squeeze(3) for conv in self.convs]
+        pooled = [F.max_pool1d(i, i.size(2)).squeeze(2) for i in convs]
+        pooled = self.dropout(torch.cat(pooled, 1))
+        linear = self.fc(pooled)
+        return linear
