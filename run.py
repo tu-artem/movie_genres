@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader, random_split
 import mlflow
 
 from dataloader import Movie, MovieDataset, Vocab, load_fasttext, tokenize
-from models import SimpleLSTM
+from models import SimpleLSTM, SimpleCNN
 from utils import train
 
 
@@ -88,37 +88,63 @@ ds_train, ds_valid = random_split(ds, lengths=[train_len, len(movies) - train_le
 
 
 if __name__ == "__main__":
+
+
+    # TODO: Make these agrparse parameters
+    MODEL_TYPE = "cnn"
     SAVE_MODEL = True
 
+    N_EPOCHS = 3
     BATCH_SIZE = 32
     HIDDEN_DIM = 128
     BIDIRECTIONAL = True
     NUM_LAYERS = 1
     DROPOUT = 0.1
-    N_EPOCHS = 10
     PRINT_EVERY = 1
+    NUM_FILTERS = 12
+    FILTER_SIZES = [1, 3, 5]
 
     dl_train = DataLoader(ds_train, batch_size=BATCH_SIZE, shuffle=True)
     dl_valid = DataLoader(ds_valid, batch_size=BATCH_SIZE, shuffle=True)
 
-    model_args = {
-        "n_out": len(genres_vocab),
-        "vocab_size": len(overviews_vocab),
-        "vectors": overviews_vocab.vectors,
-        "seq_len": 300,
-        "hidden_dim": HIDDEN_DIM,
-        "bidirectional": BIDIRECTIONAL,
-        "num_layers": NUM_LAYERS,
-        "dropout": DROPOUT,
+    model_classes = {
+        "lstm": SimpleLSTM,
+        "cnn": SimpleCNN
     }
 
-    model = SimpleLSTM(**model_args).to(device)
+    if MODEL_TYPE == "lstm":
+        model_args = {
+            "n_out": len(genres_vocab),
+            "vocab_size": len(overviews_vocab),
+            "vectors": overviews_vocab.vectors,
+            "seq_len": 300,
+            "hidden_dim": HIDDEN_DIM,
+            "bidirectional": BIDIRECTIONAL,
+            "num_layers": NUM_LAYERS,
+            "dropout": DROPOUT,
+        }
+    elif MODEL_TYPE == "cnn":
+        model_args = {
+            "n_out": len(genres_vocab),
+            "vectors": overviews_vocab.vectors,
+            "hidden_dim": HIDDEN_DIM,
+            "dropout": DROPOUT,
+            "num_filters": NUM_FILTERS,
+            "filter_sizes": FILTER_SIZES,
+        }
+
+    model_class = model_classes[MODEL_TYPE]
+
+    model = model_class(**model_args).to(device)
+    print(model.type)
+    print(model)
 
     criterion = nn.BCEWithLogitsLoss()
     optimizer = torch.optim.Adam(model.parameters())
 
     train(
         model,
+        MODEL_TYPE,
         dl_train,
         dl_valid,
         criterion,
@@ -144,7 +170,7 @@ if __name__ == "__main__":
             "model_args": model_args
         }
 
-        torch.save(serialization_dictionary, "outputs/models/simple_lstm_{0}.pth".format(N_EPOCHS))
+        torch.save(serialization_dictionary, "outputs/models/{0}_{1}.pth".format(MODEL_TYPE, N_EPOCHS))
 
 
         with open("outputs/vocab/overviews_vocab.pcl", "wb") as f:

@@ -24,7 +24,7 @@ def multilabel_accuracy(
     return acc.mean().item()
 
 
-def train(model, dl_train, dl_valid, criterion, optimizer, n_epochs, print_every, logger=None):
+def train(model, model_type, dl_train, dl_valid, criterion, optimizer, n_epochs, print_every, logger=None):
     train_losses = []
     valid_losses = []
     for epoch in range(n_epochs):
@@ -37,7 +37,12 @@ def train(model, dl_train, dl_valid, criterion, optimizer, n_epochs, print_every
 
             model.zero_grad()
 
-            predicted = model(sample["X"], sample["X_len"])
+            if model_type == "lstm":
+                predicted = model(sample["X"], sample["X_len"])
+            elif model_type == "cnn":
+                predicted = model(sample["X"])
+            else:
+                raise ValueError("Cannot determine model type!")
             loss = criterion(predicted, sample["y"])
             epoch_loss += loss.item()
 
@@ -48,7 +53,12 @@ def train(model, dl_train, dl_valid, criterion, optimizer, n_epochs, print_every
         # validation
         for sample in dl_valid:
             model.eval()
-            predicted = model(sample["X"], sample["X_len"])
+            if model_type == "lstm":
+                predicted = model(sample["X"], sample["X_len"])
+            elif model_type == "cnn":
+                predicted = model(sample["X"])
+            else:
+                raise ValueError("Cannot determine model type!")
             loss = criterion(predicted, sample["y"])
             valid_epoch_loss += loss.item()
             valid_epoch_acc += multilabel_accuracy(sample["y"], torch.sigmoid(predicted))
