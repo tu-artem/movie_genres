@@ -94,7 +94,7 @@ if __name__ == "__main__":
     MODEL_TYPE = "cnn"
     SAVE_MODEL = True
 
-    N_EPOCHS = 3
+    N_EPOCHS = 30
     BATCH_SIZE = 32
     HIDDEN_DIM = 128
     BIDIRECTIONAL = True
