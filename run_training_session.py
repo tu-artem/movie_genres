@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader, random_split
 import mlflow
 
 from dataloader import Movie, MovieDataset, Vocab, load_fasttext, tokenize
-from models import SimpleLSTM, SimpleCNN
+from models import SimpleLSTM, SimpleCNN, ConcatPoolLSTM
 from utils import train
 
 
@@ -91,13 +91,13 @@ if __name__ == "__main__":
 
 
     # TODO: Make these agrparse parameters
-    MODEL_TYPE = "cnn"
+    MODEL_TYPE = "lstm_pooling"
     SAVE_MODEL = True
 
-    N_EPOCHS = 30
+    N_EPOCHS = 20
     BATCH_SIZE = 32
     HIDDEN_DIM = 128
-    BIDIRECTIONAL = True
+    BIDIRECTIONAL = False
     NUM_LAYERS = 1
     DROPOUT = 0.1
     PRINT_EVERY = 1
@@ -109,10 +109,11 @@ if __name__ == "__main__":
 
     model_classes = {
         "lstm": SimpleLSTM,
+        "lstm_pooling": ConcatPoolLSTM,
         "cnn": SimpleCNN
     }
 
-    if MODEL_TYPE == "lstm":
+    if MODEL_TYPE in ("lstm", "lstm_pooling"):
         model_args = {
             "n_out": len(genres_vocab),
             "vocab_size": len(overviews_vocab),
@@ -136,7 +137,6 @@ if __name__ == "__main__":
     model_class = model_classes[MODEL_TYPE]
 
     model = model_class(**model_args).to(device)
-    print(model.type)
     print(model)
 
     criterion = nn.BCEWithLogitsLoss()
@@ -164,7 +164,6 @@ if __name__ == "__main__":
         if not os.path.exists("outputs/vocab"):
             os.mkdir("outputs/vocab")
 
-
         serialization_dictionary = {
             "model_weights": model.state_dict(),
             "model_args": model_args
@@ -172,9 +171,7 @@ if __name__ == "__main__":
 
         torch.save(serialization_dictionary, "outputs/models/{0}_{1}.pth".format(MODEL_TYPE, N_EPOCHS))
 
-
         with open("outputs/vocab/overviews_vocab.pcl", "wb") as f:
             pickle.dump(overviews_vocab, f)
-
         with open("outputs/vocab/genres_vocab.pcl", "wb") as f:
             pickle.dump(genres_vocab, f)

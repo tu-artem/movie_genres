@@ -37,7 +37,7 @@ def train(model, model_type, dl_train, dl_valid, criterion, optimizer, n_epochs,
 
             model.zero_grad()
 
-            if model_type == "lstm":
+            if model_type in ("lstm", "lstm_pooling"):
                 predicted = model(sample["X"], sample["X_len"])
             elif model_type == "cnn":
                 predicted = model(sample["X"])
@@ -53,7 +53,7 @@ def train(model, model_type, dl_train, dl_valid, criterion, optimizer, n_epochs,
         # validation
         for sample in dl_valid:
             model.eval()
-            if model_type == "lstm":
+            if model_type in ("lstm", "lstm_pooling"):
                 predicted = model(sample["X"], sample["X_len"])
             elif model_type == "cnn":
                 predicted = model(sample["X"])

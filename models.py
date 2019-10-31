@@ -21,6 +21,7 @@ class SimpleLSTM(nn.Module):
     ) -> None:
         super().__init__()
 
+        self.n_out = n_out
         self.hidden_dim = hidden_dim
         self.num_layers = num_layers
         self.seq_len = seq_len
@@ -50,7 +51,6 @@ class SimpleLSTM(nn.Module):
         lstm_unpacked = pad_packed_sequence(
             lstm, batch_first=True, total_length=self.seq_len
         )[0]
-
         return lstm_unpacked, (h, c)
 
     def forward(self, data, lengths):
@@ -69,6 +69,78 @@ class SimpleLSTM(nn.Module):
 
         linear = self.fc(self.dropout(last_states))
         linear2 = self.fc2(self.dropout(linear))
+        return linear2
+
+
+class ConcatPoolLSTM(nn.Module):
+    def __init__(
+        self,
+        n_out: int,
+        vocab_size: int,
+        vectors: torch.Tensor,
+        seq_len: int = 100,
+        embedding_dim: int = 300,
+        hidden_dim: int = 128,
+        dropout: float = 0.2,
+        bidirectional: bool = False,
+        num_layers: int = 1,
+    ) -> None:
+        super().__init__()
+
+        if bidirectional:
+            raise NotImplementedError("Does not support bidirectional yet")
+
+        self.n_out = n_out
+        self.hidden_dim = hidden_dim
+        self.num_layers = num_layers
+        self.seq_len = seq_len
+        self.embeddings = nn.Embedding.from_pretrained(vectors)
+
+        self.lstm = nn.LSTM(
+            embedding_dim,
+            hidden_dim,
+            batch_first=True,
+            num_layers=num_layers,
+            bidirectional=bidirectional,
+        )
+
+        self.dropout = nn.Dropout(dropout)
+        self.bidirectional = bidirectional
+        self.num_directions = 2 if bidirectional else 1
+
+        self.fc = nn.Linear(self.hidden_dim * 3, self.hidden_dim // 2)
+        self.fc2 = nn.Linear(self.hidden_dim // 2, self.n_out)
+
+    def _lstm_forward(self, data, lengths):
+
+        embeddings = self.embeddings(data)
+        packed = pack_padded_sequence(
+            embeddings, lengths, batch_first=True, enforce_sorted=False
+        )
+        lstm, (h, c) = self.lstm(packed)
+        lstm_unpacked = pad_packed_sequence(
+            lstm, batch_first=True, total_length=self.seq_len
+        )[0]
+        return lstm_unpacked, (h, c)
+
+    def forward(self, data, lengths):
+        lstm_unpacked, (h, c) = self._lstm_forward(data, lengths)
+
+        h = h.view(self.num_layers, self.num_directions, -1, self.hidden_dim)
+        h = h[-1, 0]
+
+        max_pool = F.adaptive_max_pool1d(lstm_unpacked.permute(0, 2, 1), 1).view(
+            -1, self.hidden_dim
+        )
+        avg_pool = F.adaptive_avg_pool1d(lstm_unpacked.permute(0, 2, 1), 1).view(
+            -1, self.hidden_dim
+        )
+
+        concat = torch.cat([h, max_pool, avg_pool], dim=1)
+
+        linear = self.fc(self.dropout(concat))
+        linear2 = self.fc2(self.dropout(linear))
+
         return linear2
 
 
@@ -93,7 +165,10 @@ class SimpleCNN(nn.Module):
         self.num_filters = num_filters
 
         self.convs = nn.ModuleList(
-            [nn.Conv2d(1, num_filters, (K, self.embedding_dim)) for K in self.filter_sizes]
+            [
+                nn.Conv2d(1, num_filters, (K, self.embedding_dim))
+                for K in self.filter_sizes
+            ]
         )
 
         self.dropout = nn.Dropout(dropout)
