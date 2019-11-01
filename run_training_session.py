@@ -2,6 +2,7 @@ import csv
 import io
 import os
 import pickle
+import argparse
 
 from collections import Counter
 from itertools import chain
@@ -88,55 +89,61 @@ ds_train, ds_valid = random_split(ds, lengths=[train_len, len(movies) - train_le
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Run training session.")
+    arg = parser.add_argument
 
+    arg("--model_type", help="A model to train")
+    arg("--save_model", action="store_true")
+    arg("--n_epochs", type=int)
 
-    # TODO: Make these agrparse parameters
-    MODEL_TYPE = "lstm"
-    SAVE_MODEL = True
+    # Optional arguments
+    arg("--batch_size", type=int, default=32)
+    arg("--hidden_dim", type=int, default=128)
+    arg("--bidirectional", action="store_true")
+    arg("--num_layers", type=int, default=1, help="Number of LSTM Layers")
+    arg("--wdrop", type=float, default=0.0)
+    arg("--dropout", type=float, default=0.2)
 
-    N_EPOCHS = 1
-    BATCH_SIZE = 32
-    HIDDEN_DIM = 128
-    BIDIRECTIONAL = False
-    NUM_LAYERS = 1
-    DROPOUT = 0.1
-    PRINT_EVERY = 1
-    NUM_FILTERS = 12
-    FILTER_SIZES = [1, 3, 5]
-    WDROP = 0.2
+    arg("--num_filters", type=int, default=12)
+    arg("--filter_sizes", type=int, nargs="+", default=[1, 3, 5])
 
-    dl_train = DataLoader(ds_train, batch_size=BATCH_SIZE, shuffle=True)
-    dl_valid = DataLoader(ds_valid, batch_size=BATCH_SIZE, shuffle=True)
+    arg("--print_every", type=int, default=1)
+
+    args = parser.parse_args()
+    print(args)
+
+    dl_train = DataLoader(ds_train, batch_size=args.batch_size, shuffle=True)
+    dl_valid = DataLoader(ds_valid, batch_size=args.batch_size, shuffle=True)
 
     model_classes = {
         "lstm": SimpleLSTM,
         "lstm_pooling": ConcatPoolLSTM,
-        "cnn": SimpleCNN
+        "cnn": SimpleCNN,
     }
 
-    if MODEL_TYPE in ("lstm", "lstm_pooling"):
+    if args.model_type in ("lstm", "lstm_pooling"):
         model_args = {
             "n_out": len(genres_vocab),
             "vocab_size": len(overviews_vocab),
             "vectors": overviews_vocab.vectors,
             "seq_len": 300,
-            "hidden_dim": HIDDEN_DIM,
-            "bidirectional": BIDIRECTIONAL,
-            "num_layers": NUM_LAYERS,
-            "dropout": DROPOUT,
-            "wdrop": WDROP,
+            "hidden_dim": args.hidden_dim,
+            "bidirectional": args.bidirectional,
+            "num_layers": args.num_layers,
+            "dropout": args.dropout,
+            "wdrop": args.wdrop,
         }
-    elif MODEL_TYPE == "cnn":
+    elif args.model_type == "cnn":
         model_args = {
             "n_out": len(genres_vocab),
             "vectors": overviews_vocab.vectors,
-            "hidden_dim": HIDDEN_DIM,
-            "dropout": DROPOUT,
-            "num_filters": NUM_FILTERS,
-            "filter_sizes": FILTER_SIZES,
+            "hidden_dim": args.hidden_dim,
+            "dropout": args.dropout,
+            "num_filters": args.num_filters,
+            "filter_sizes": args.filter_sizes,
         }
 
-    model_class = model_classes[MODEL_TYPE]
+    model_class = model_classes[args.model_type]
 
     model = model_class(**model_args).to(device)
     print(model)
@@ -146,17 +153,17 @@ if __name__ == "__main__":
 
     train(
         model,
-        MODEL_TYPE,
+        args.model_type,
         dl_train,
         dl_valid,
         criterion,
         optimizer,
-        n_epochs=N_EPOCHS,
-        print_every=PRINT_EVERY,
-        logger=mlflow.log_metrics
+        n_epochs=args.n_epochs,
+        print_every=args.print_every,
+        logger=mlflow.log_metrics,
     )
 
-    if SAVE_MODEL:
+    if args.save_model:
         if not os.path.exists("outputs"):
             os.mkdir("outputs")
 
@@ -168,10 +175,13 @@ if __name__ == "__main__":
 
         serialization_dictionary = {
             "model_weights": model.state_dict(),
-            "model_args": model_args
+            "model_args": model_args,
         }
 
-        torch.save(serialization_dictionary, "outputs/models/{0}_{1}.pth".format(MODEL_TYPE, N_EPOCHS))
+        torch.save(
+            serialization_dictionary,
+            "outputs/models/{0}_{1}.pth".format(args.model_type, args.n_epochs),
+        )
 
         with open("outputs/vocab/overviews_vocab.pcl", "wb") as f:
             pickle.dump(overviews_vocab, f)
