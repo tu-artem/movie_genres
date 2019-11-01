@@ -6,6 +6,49 @@ import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 
+class WeightDrop(torch.nn.Module):
+    def __init__(
+        self,
+        module: nn.Module,
+        weights: List[str],
+        dropout: float = 0,
+        variational: bool = False,
+    ):
+        super().__init__()
+        self.module = module
+        self.weights = weights
+        self.dropout = dropout
+        self.variational = variational
+        self._setup()
+
+    def _setup(self):
+        for name_w in self.weights:
+            print("Applying weight drop of {} to {}".format(self.dropout, name_w))
+            w = getattr(self.module, name_w)
+            del self.module._parameters[name_w]
+            self.module.register_parameter(name_w + "_raw", nn.Parameter(w.data))
+
+    def _setweights(self):
+        for name_w in self.weights:
+            raw_w = getattr(self.module, name_w + "_raw")
+            w = None
+            if self.variational:
+                mask = torch.ones(raw_w.size(0), 1)
+                if raw_w.is_cuda:
+                    mask = mask.cuda()
+                mask = torch.nn.functional.dropout(mask, p=self.dropout, training=True)
+                w = mask.expand_as(raw_w) * raw_w
+            else:
+                w = torch.nn.functional.dropout(
+                    raw_w, p=self.dropout, training=self.training
+                )
+            setattr(self.module, name_w, w)
+
+    def forward(self, *args):
+        self._setweights()
+        return self.module.forward(*args)
+
+
 class SimpleLSTM(nn.Module):
     def __init__(
         self,
@@ -18,6 +61,7 @@ class SimpleLSTM(nn.Module):
         dropout: float = 0.2,
         bidirectional: bool = False,
         num_layers: int = 1,
+        wdrop: float = 0,
     ) -> None:
         super().__init__()
 
@@ -34,6 +78,9 @@ class SimpleLSTM(nn.Module):
             num_layers=num_layers,
             bidirectional=bidirectional,
         )
+
+        if wdrop:
+            self.lstm = WeightDrop(self.lstm, ["weight_hh_l0"], dropout=wdrop)
 
         self.dropout = nn.Dropout(dropout)
         self.bidirectional = bidirectional

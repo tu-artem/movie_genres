@@ -91,10 +91,10 @@ if __name__ == "__main__":
 
 
     # TODO: Make these agrparse parameters
-    MODEL_TYPE = "lstm_pooling"
+    MODEL_TYPE = "lstm"
     SAVE_MODEL = True
 
-    N_EPOCHS = 20
+    N_EPOCHS = 1
     BATCH_SIZE = 32
     HIDDEN_DIM = 128
     BIDIRECTIONAL = False
@@ -103,6 +103,7 @@ if __name__ == "__main__":
     PRINT_EVERY = 1
     NUM_FILTERS = 12
     FILTER_SIZES = [1, 3, 5]
+    WDROP = 0.2
 
     dl_train = DataLoader(ds_train, batch_size=BATCH_SIZE, shuffle=True)
     dl_valid = DataLoader(ds_valid, batch_size=BATCH_SIZE, shuffle=True)
@@ -123,6 +124,7 @@ if __name__ == "__main__":
             "bidirectional": BIDIRECTIONAL,
             "num_layers": NUM_LAYERS,
             "dropout": DROPOUT,
+            "wdrop": WDROP,
         }
     elif MODEL_TYPE == "cnn":
         model_args = {
